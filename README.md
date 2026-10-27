@@ -93,7 +93,7 @@ npm run build:exe   # Windows .exe in dist/ (needs Bun: https://bun.sh)
 | `src/i18n.ts` | All texts in English and Portuguese |
 | `src/platform.ts` | Opening the page, the desktop shortcut, installing the .exe |
 
-Releases are built by GitHub Actions: bump `version` in `package.json`, then push a tag like `v0.2.0`. The workflow builds `BatomonMatchHistory.exe` with Bun and attaches it to a new release. Every pull request also builds the .exe as a downloadable artifact.
+Releases are built by GitHub Actions: bump `version` in `package.json`, then run the **Release** workflow from the Actions tab (or push a tag like `v0.2.0`). It builds `BatomonMatchHistory.exe` with Bun and attaches it to a new release. Every pull request also builds the .exe as a downloadable artifact.
 
 ### How the data is read
 
