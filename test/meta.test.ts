@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mapSelection } from "../src/api";
 import { buildMeta, buildTrainers, isMeta } from "../src/meta";
+import { learnRegions, runRegion } from "../src/regions";
 import type { Run } from "../src/types";
 
 function run(i: number, player: string, units: string[], wins: number, trainer = "Gamer", endedAt = "2026-10-26T10:00:00Z"): Run {
@@ -88,4 +89,24 @@ test("mapSelection reads the trainer lists in the shapes the API may use", () =>
     picked: "Gamer",
   });
   assert.deepEqual(mapSelection({}), { offered: [], picked: null });
+});
+
+test("regions: runs go to the region of their exclusive Batomon, and the split is relearned", () => {
+  const pantra = ["Formiqueen", "Velocect", "Cicadence"];
+  const jinto = ["Tengusto", "Shikitsune", "Ginsage"];
+  const runs = [
+    ...comp(0, 30, [...pantra, "Dracana"], () => 6),
+    ...comp(100, 30, [...jinto, "Dracana"], () => 6),
+    // A Batomon the seeds do not know, only ever seen in Jinto teams.
+    ...comp(200, 30, ["Tengusto", "Shikitsune", "Newmon"], () => 6),
+  ];
+  const pools = learnRegions(runs);
+  assert.ok(pools.Jinto.includes("Newmon"));
+  assert.ok(!pools.Pantra.includes("Dracana") && !pools.Jinto.includes("Dracana"), "found in both regions");
+  assert.equal(runRegion(runs[0], pools), "Pantra");
+  assert.equal(runRegion(runs[40], pools), "Jinto");
+  assert.equal(runRegion(run(999, "x", ["Dracana", "Onsetra"], 5), pools), null);
+
+  const meta = buildMeta(runs, [], 1, 14, new Date("2026-10-27T00:00:00Z"));
+  assert.deepEqual(meta.regions?.map((r) => [r.region, r.runs]), [["Pantra", 30], ["Jinto", 60]]);
 });

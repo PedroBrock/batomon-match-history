@@ -80,6 +80,10 @@ const en = {
   metaMissing: "The stats could not be downloaded yet. Check your internet connection; the app tries again every 30 minutes.",
   metaHow:
     "Grouped by 3 core Batomon. Score: 70% share of 10-badge runs + 30% average badges. Only comps with 40+ runs from 25+ players get a tier.",
+  regionAll: "All regions",
+  regionLabel: "Region",
+  regionHow:
+    "The game does not record the region of a run, so it is worked out from the final team: Batomon found only in Pantra or only in Jinto. Batomon found in both count for neither.",
   filterLabel: "Filter by Batomon or trainer",
   filterPlaceholder: "e.g. Dracana, Gamer",
   noTier: "No tier yet (small sample)",
@@ -218,6 +222,10 @@ const ptBR: Texts = {
   metaMissing: "Ainda não consegui baixar as estatísticas. Confira sua internet; o app tenta de novo a cada 30 minutos.",
   metaHow:
     "Agrupadas por 3 Batomon centrais. Nota: 70% taxa de runs com 10 insígnias + 30% média de insígnias. Só ganham tier as comps com 40+ runs de 25+ jogadores.",
+  regionAll: "Todas as regiões",
+  regionLabel: "Região",
+  regionHow:
+    "O jogo não registra a região da run, então ela é deduzida do time final: Batomon que só aparecem em Pantra ou só em Jinto. Os que aparecem nas duas não contam.",
   filterLabel: "Filtrar por Batomon ou trainer",
   filterPlaceholder: "ex.: Dracana, Gamer",
   noTier: "Sem tier ainda (amostra pequena)",

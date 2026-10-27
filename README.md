@@ -2,7 +2,7 @@
 
 A companion app for **Batomon Showdown**. Leave it open while you play:
 
-- **Best comps right now**: a tier list (S/A/B/C) of the comps that do best for the top 2000 players, with their usual team and trainers. Type a Batomon or trainer you have to see which comps use it.
+- **Best comps right now**: a tier list (S/A/B/C) of the comps that do best for the top 2000 players, with their usual team and trainers, for all runs or only Pantra or Jinto runs. Type a Batomon or trainer you have to see which comps use it.
 - **Trainers**: average badges, 10-badge rate and how often each trainer is picked when offered, next to your own numbers with it.
 - **My history**: every ranked run you play is saved as soon as it ends, with your win rate, average badges, which comps, trainers and Batomon gain or lose you rank, your MMR over time, and more.
 
@@ -101,6 +101,7 @@ npm run build:exe   # Windows .exe in dist/ (needs Bun: https://bun.sh)
 | `src/store.ts`, `src/sync.ts` | Data folder, settings, history and how new runs are merged |
 | `src/stats.ts`, `src/comps.ts` | Win rate, badges, rank balance; comps grouped by 3 core Batomon |
 | `src/meta.ts`, `src/metaClient.ts` | Comps tier list and trainer stats of the top players; downloading them |
+| `src/regions.ts` | Which Batomon belong to Pantra or Jinto, and the region of a run |
 | `scripts/collect-meta.ts` | Builds `meta.json` (run by the Meta stats workflow) |
 | `src/report.ts` | The history page (one file, sprites inlined) |
 | `src/i18n.ts` | All texts in English and Portuguese |
@@ -113,6 +114,8 @@ Releases are built by GitHub Actions: bump `version` in `package.json`, then run
 The game backend (`api.batomon.app`) is a PocketBase server. The public `player_profiles` collection holds each account's rank, MMR, games, wins and its ~10 most recent runs (trainer, final team, round, badges, outcome). While open, the app reads your own profile once every 2 minutes (one small request) and identifies itself with a `User-Agent` that links to this repository. Profiles also contain the account's Steam ID; this tool never stores or shows it.
 
 The comps and trainer stats are not collected by each app. The **Meta stats** workflow (`.github/workflows/meta.yml`) runs on GitHub Actions every 6 hours: it reads the top 2000 profiles of the season and the newest records of the public, anonymous `trainer_selections` collection (which trainers were offered and which one was picked), and publishes the aggregated `meta.json` on the [`meta-data`](https://github.com/PedroBrock/batomon-match-history/tree/meta-data) branch, which every app downloads. The runs it sees are kept between collections in an Actions cache (never published), so the stats cover the last 14 days.
+
+The API does not record which region (Pantra or Jinto) a run was played in, so it is worked out from the final team: some Batomon are only found in one region (`src/regions.ts` lists them, and each collection redoes the split from the runs, so new Batomon get a region too); Batomon found in both count for neither. Each region gets its own tier list and trainer stats.
 
 Comps are grouped by a core of 3 Batomon. Each comp scores 70% share of 10-badge runs + 30% average badges; comps with 40+ runs from 25+ players get a tier by position: top 15% S, up to 40% A, up to 70% B, the rest C.
 

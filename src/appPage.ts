@@ -1,9 +1,11 @@
 import sprites from "./generated/sprites.json";
 import { LANGS, LANG_NAMES, TEXTS, type Lang } from "./i18n";
 import type { MetaComp, MetaStats, MetaTrainer, TierLetter } from "./meta";
+import { runRegion, type RegionPools } from "./regions";
 import { Page, SpriteSheet, STYLE, esc, pct } from "./report";
-import { computeStats, type Line } from "./stats";
+import { computeStats } from "./stats";
 import type { Config, History } from "./store";
+import type { Run } from "./types";
 
 // The app window: tabs with the best comps, the trainers and the player's own
 // history, plus the first-time setup. The server (app.ts) sends the whole
@@ -23,6 +25,16 @@ export interface AppView {
 }
 
 const TIERS: (TierLetter | null)[] = ["S", "A", "B", "C", null];
+
+interface View {
+  /** "all" or a region. */
+  key: string;
+  label: string;
+  players: number;
+  runs: number;
+  comps: MetaComp[];
+  trainers: MetaTrainer[];
+}
 
 function ago(iso: string, t: T, now: Date): string {
   const minutes = Math.round((Date.parse(iso) - now.getTime()) / 60_000);
@@ -51,42 +63,77 @@ class AppPage extends Page {
 <td><div class="trainers">${trainers}</div></td><td>${this.num(c.avgWins)}</td><td>${pct(c.tenRate)}</td><td>${c.runs}</td><td>${c.players}</td><td>${this.share(c.playRate)}</td></tr>`;
   }
 
+  /** "All regions" plus one view per region, each with its own tiers and numbers. */
+  views(meta: MetaStats): View[] {
+    const all: View = { key: "all", label: this.t.regionAll, players: meta.players, runs: meta.runs, comps: meta.comps, trainers: meta.trainers };
+    return [all, ...(meta.regions ?? []).map((r): View => ({ key: r.region, label: r.region, ...r }))];
+  }
+
+  regionSwitch(views: View[]): string {
+    if (views.length < 2) return "";
+    const buttons = views.map((v) => `<button type="button" data-region="${v.key}">${esc(v.label)}</button>`).join("");
+    return `<div class="regions" role="group" aria-label="${esc(this.t.regionLabel)}">${buttons}</div>`;
+  }
+
+  lead(meta: MetaStats, view: View, now: Date): string {
+    return `<p class="lead">${esc(this.t.metaLead(view.runs, view.players, meta.season, meta.windowDays, ago(meta.generatedAt, this.t, now)))}</p>`;
+  }
+
   comps(meta: MetaStats | null, now: Date): string {
     const t = this.t;
     if (!meta) return `<h1>${t.metaTitle}</h1><p class="empty">${t.metaMissing}</p>`;
     const head = `<thead><tr><th>${t.thComp}</th><th>${t.thTopTrainers}</th><th>${t.thAvgBadges}</th><th>${t.thTen}</th><th>${t.thRuns}</th><th>${t.thPlayers}</th><th>${t.thPlayRate}</th></tr></thead>`;
-    const groups = TIERS.map((tier) => {
-      const comps = meta.comps.filter((c) => c.tier === tier);
-      if (!comps.length) return "";
-      const title = tier ? `<span class="tier t${tier}">${tier}</span>` : esc(t.noTier);
-      return `<div class="tier-group" data-group><h2>${title}</h2>
+    const views = this.views(meta);
+    const body = views
+      .map((view) => {
+        const groups = TIERS.map((tier) => {
+          const comps = view.comps.filter((c) => c.tier === tier);
+          if (!comps.length) return "";
+          const title = tier ? `<span class="tier t${tier}">${tier}</span>` : esc(t.noTier);
+          return `<div class="tier-group" data-group><h2>${title}</h2>
 <div class="scroll"><table>${head}<tbody>${comps.map((c) => this.compRow(c)).join("\n")}</tbody></table></div></div>`;
-    }).join("\n");
-    return `<h1>${t.metaTitle}</h1>
-<p class="lead">${esc(t.metaLead(meta.runs, meta.players, meta.season, meta.windowDays, ago(meta.generatedAt, t, now)))}</p>
-<label class="filter"><span>${t.filterLabel}</span><input type="search" data-filter placeholder="${esc(t.filterPlaceholder)}" autocomplete="off"></label>
+        }).join("\n");
+        return `<div data-region-view="${view.key}">
+${this.lead(meta, view, now)}
 ${groups || `<p class="empty">${t.notEnough}</p>`}
 <p class="empty" data-no-match hidden>${t.noMatch}</p>
-<p class="lead footer">${t.metaHow}</p>`;
+</div>`;
+      })
+      .join("\n");
+    return `<h1>${t.metaTitle}</h1>
+${this.regionSwitch(views)}
+<label class="filter"><span>${t.filterLabel}</span><input type="search" data-filter placeholder="${esc(t.filterPlaceholder)}" autocomplete="off"></label>
+${body}
+<p class="lead footer">${t.metaHow}${meta.regions ? ` ${t.regionHow}` : ""}</p>`;
   }
 
-  trainers(meta: MetaStats | null, mine: Line[], now: Date): string {
+  trainers(meta: MetaStats | null, myRuns: Run[], now: Date): string {
     const t = this.t;
     if (!meta) return `<h1>${t.trainersTitle}</h1><p class="empty">${t.metaMissing}</p>`;
-    const myLine = new Map(mine.map((l) => [l.label, l]));
-    const rows = meta.trainers
-      .filter((x) => x.runs > 0)
-      .map((x: MetaTrainer) => {
-        const me = myLine.get(x.name);
-        return `<tr><td>${this.trainerName(x.name)}</td><td>${this.num(x.avgWins)}</td><td>${pct(x.tenRate)}</td><td>${pct(x.upRate)}</td>
+    const views = this.views(meta);
+    const body = views
+      .map((view) => {
+        const mine = view.key === "all" || !meta.pools ? myRuns : myRuns.filter((r) => runRegion(r, meta.pools as RegionPools) === view.key);
+        const myLine = new Map(computeStats(mine).byTrainer.map((l) => [l.label, l]));
+        const rows = view.trainers
+          .filter((x) => x.runs > 0)
+          .map((x: MetaTrainer) => {
+            const me = myLine.get(x.name);
+            return `<tr><td>${this.trainerName(x.name)}</td><td>${this.num(x.avgWins)}</td><td>${pct(x.tenRate)}</td><td>${pct(x.upRate)}</td>
 <td>${x.runs} <small>(${this.share(x.playRate)})</small></td><td>${x.pickRate === null ? "-" : pct(x.pickRate)}</td><td>${me ? esc(t.youCell(this.num(me.avgWins), me.runs)) : "-"}</td></tr>`;
+          })
+          .join("\n");
+        return `<div data-region-view="${view.key}">
+${this.lead(meta, view, now)}
+<div class="scroll"><table><thead><tr><th>${t.thTrainer}</th><th>${t.thAvgBadges}</th><th>${t.thTen}</th><th>${t.thUp}</th><th>${t.thRuns}</th><th>${t.thPickRate}</th><th>${t.thYou}</th></tr></thead>
+<tbody>${rows}</tbody></table></div>
+</div>`;
       })
       .join("\n");
     return `<h1>${t.trainersTitle}</h1>
-<p class="lead">${esc(t.metaLead(meta.runs, meta.players, meta.season, meta.windowDays, ago(meta.generatedAt, t, now)))}</p>
+${this.regionSwitch(views)}
 <p class="lead">${esc(t.trainersLead)}</p>
-<div class="scroll"><table><thead><tr><th>${t.thTrainer}</th><th>${t.thAvgBadges}</th><th>${t.thTen}</th><th>${t.thUp}</th><th>${t.thRuns}</th><th>${t.thPickRate}</th><th>${t.thYou}</th></tr></thead>
-<tbody>${rows}</tbody></table></div>`;
+${body}`;
   }
 
   setup(canShortcut: boolean): string {
@@ -127,7 +174,7 @@ ${canShortcut ? `<label class="check"><input type="checkbox" data-setup-shortcut
 </header>
 <div class="tabs" role="tablist">${tab("comps", t.tabComps)}${tab("trainers", t.tabTrainers)}${tab("history", t.tabHistory)}</div>
 <section data-panel="comps">${this.comps(meta, now)}</section>
-<section data-panel="trainers">${this.trainers(meta, stats?.byTrainer ?? [], now)}</section>
+<section data-panel="trainers">${this.trainers(meta, history?.runs ?? [], now)}</section>
 <section data-panel="history">${historyPanel}</section>`;
   }
 
@@ -166,6 +213,11 @@ button:hover { border-color:var(--accent); }
 .tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; background:none; color:var(--muted); padding:8px 14px; font-size:15px; }
 .tabs button[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--accent); }
 section[hidden] { display:none; }
+.regions { display:inline-flex; gap:0; margin:10px 0 4px; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+.regions button { border:0; border-radius:0; border-right:1px solid var(--line); }
+.regions button:last-child { border-right:0; }
+.regions button[aria-pressed="true"] { background:var(--accent); color:var(--bg); }
+[data-region-view][hidden] { display:none; }
 .filter { display:flex; flex-direction:column; gap:4px; margin:14px 0 4px; max-width:360px; color:var(--muted); font-size:13px; }
 input[type=search], .setup input[name=q] { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; }
 input:focus { outline:2px solid var(--accent); outline-offset:1px; }
@@ -184,11 +236,12 @@ input:focus { outline:2px solid var(--accent); outline-offset:1px; }
 /** Tabs, language, filter, setup and live updates. */
 function appScript(lang: Lang): string {
   return `(function () {
-  var LANG_KEY = "bmh-lang", TAB_KEY = "bmh-tab";
+  var LANG_KEY = "bmh-lang", TAB_KEY = "bmh-tab", REGION_KEY = "bmh-region";
   function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function store(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
   var lang = load(LANG_KEY) || ${JSON.stringify(lang)};
   var tab = load(TAB_KEY);
+  var region = load(REGION_KEY) || "all";
   var app = document.getElementById("app");
 
   function apply() {
@@ -201,6 +254,11 @@ function appScript(lang: Lang): string {
       if (!m.hidden) document.title = m.dataset.title;
       m.querySelectorAll("[data-tab]").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.tab === shown)); });
       m.querySelectorAll("[data-panel]").forEach(function (p) { p.hidden = p.dataset.panel !== shown; });
+      m.querySelectorAll("[data-panel]").forEach(function (p) {
+        var has = p.querySelector('[data-region-view="' + region + '"]');
+        p.querySelectorAll("[data-region-view]").forEach(function (v) { v.hidden = v.dataset.regionView !== (has ? region : "all"); });
+        p.querySelectorAll("[data-region]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.region === (has ? region : "all"))); });
+      });
     });
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.setLang === lang)); });
@@ -209,19 +267,21 @@ function appScript(lang: Lang): string {
   function filter(input) {
     var q = input.value.trim().toLowerCase();
     var panel = input.closest("section");
-    var any = false;
-    panel.querySelectorAll("[data-group]").forEach(function (g) {
-      var visible = 0;
-      g.querySelectorAll("tr[data-search]").forEach(function (row) {
-        var ok = !q || q.split(/[\\s,]+/).every(function (w) { return row.dataset.search.indexOf(w) !== -1; });
-        row.hidden = !ok;
-        if (ok) visible++;
+    panel.querySelectorAll("[data-region-view]").forEach(function (view) {
+      var any = false;
+      view.querySelectorAll("[data-group]").forEach(function (g) {
+        var visible = 0;
+        g.querySelectorAll("tr[data-search]").forEach(function (row) {
+          var ok = !q || q.split(/[\\s,]+/).every(function (w) { return row.dataset.search.indexOf(w) !== -1; });
+          row.hidden = !ok;
+          if (ok) visible++;
+        });
+        g.hidden = visible === 0;
+        if (visible) any = true;
       });
-      g.hidden = visible === 0;
-      if (visible) any = true;
+      var none = view.querySelector("[data-no-match]");
+      if (none) none.hidden = any;
     });
-    var none = panel.querySelector("[data-no-match]");
-    if (none) none.hidden = any;
   }
 
   function post(path, body) {
@@ -290,12 +350,15 @@ function appScript(lang: Lang): string {
   }
 
   document.addEventListener("click", function (e) {
-    var el = e.target.closest("[data-set-lang],[data-tab],[data-check-now],[data-account]");
+    var el = e.target.closest("[data-set-lang],[data-tab],[data-region],[data-check-now],[data-account]");
     if (!el) return;
     if (el.dataset.setLang) {
       lang = el.dataset.setLang;
       store(LANG_KEY, lang);
       post("api/lang", { lang: lang });
+    } else if (el.dataset.region) {
+      region = el.dataset.region;
+      store(REGION_KEY, region);
     } else if (el.dataset.tab) {
       tab = el.dataset.tab;
       store(TAB_KEY, tab);

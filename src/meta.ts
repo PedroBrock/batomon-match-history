@@ -1,4 +1,5 @@
 import { clusterRuns } from "./comps";
+import { REGIONS, learnRegions, runRegion, type Region, type RegionPools } from "./regions";
 import { rankDelta } from "./stats";
 import { MAX_WINS, type Run, type Unit } from "./types";
 
@@ -55,6 +56,19 @@ export interface MetaTrainer {
   pickRate: number | null;
 }
 
+/** The same stats for the runs of one region. */
+export interface MetaRegion {
+  region: Region;
+  players: number;
+  runs: number;
+  comps: MetaComp[];
+  trainers: MetaTrainer[];
+  /** Per region (missing in files from before regions). */
+  regions?: MetaRegion[];
+  /** Batomon exclusive to each region, as worked out from the runs. */
+  pools?: RegionPools;
+}
+
 export interface MetaStats {
   version: number;
   generatedAt: string;
@@ -67,6 +81,10 @@ export interface MetaStats {
   selections: number;
   comps: MetaComp[];
   trainers: MetaTrainer[];
+  /** Per region (missing in files from before regions). */
+  regions?: MetaRegion[];
+  /** Batomon exclusive to each region, as worked out from the runs. */
+  pools?: RegionPools;
 }
 
 /** One trainer pick screen: which trainers were offered and which was taken. */
@@ -189,6 +207,18 @@ export function metaRuns(runs: Run[], season: number, windowDays: number, now: D
 
 export function buildMeta(runs: Run[], selections: Selection[], season: number, windowDays: number, now = new Date()): MetaStats {
   const recent = metaRuns(runs, season, windowDays, now);
+  const pools = learnRegions(recent);
+  const sets = { Pantra: new Set(pools.Pantra), Jinto: new Set(pools.Jinto) };
+  const regions = REGIONS.map((region): MetaRegion => {
+    const list = recent.filter((r) => runRegion(r, sets) === region);
+    return {
+      region,
+      players: new Set(list.map((r) => r.playerId)).size,
+      runs: list.length,
+      comps: buildComps(list),
+      trainers: buildTrainers(list, selections),
+    };
+  });
   return {
     version: META_VERSION,
     generatedAt: now.toISOString(),
@@ -199,6 +229,8 @@ export function buildMeta(runs: Run[], selections: Selection[], season: number, 
     selections: selections.length,
     comps: buildComps(recent),
     trainers: buildTrainers(recent, selections),
+    regions,
+    pools,
   };
 }
 
