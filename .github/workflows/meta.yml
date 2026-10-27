@@ -10,10 +10,6 @@ on:
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch:
-  # TEMPORARY: publishes a first meta.json from this branch so the PR build
-  # can be tested before merging. Remove before merging.
-  push:
-    branches: [claude/project-thread-ly0u7b]
 
 permissions:
   contents: write
