@@ -103,8 +103,7 @@ Ranked rules used for the stats: a run starts with 10 lives and ends at 0 lives 
 
 ## Credits
 
-- Batomon Showdown and all its artwork belong to berrymint. Sprites were obtained through Batodex.
-- Started as the personal tracker of [BatoStats](https://github.com/PedroBrock/batomonshowdown).
+Batomon Showdown and all its artwork belong to berrymint.
 
 ## License
 
