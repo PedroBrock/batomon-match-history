@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: npm ci
+      - run: npm run build:exe
+      - name: Smoke test the .exe
+        shell: pwsh
+        env:
+          BMH_DATA_DIR: ${{ runner.temp }}\bmh-data
+        run: |
+          ./dist/BatomonMatchHistory.exe --help
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Real API: a name search (lists matches, saves nothing).
+          ./dist/BatomonMatchHistory.exe setup Omni
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Copies the .exe into the data folder and creates the desktop shortcut.
+          ./dist/BatomonMatchHistory.exe shortcut
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (-not (Test-Path "$env:BMH_DATA_DIR\BatomonMatchHistory.exe")) { throw "exe was not installed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BatomonMatchHistory-exe
+          path: dist/BatomonMatchHistory.exe
+          retention-days: 14
