@@ -1,24 +1,12 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline/promises";
 import pkg from "../package.json";
-import {
-  ApiError,
-  PLAYER_ID,
-  rankTier,
-  displayName,
-  fetchProfile,
-  fetchSeasons,
-  mapProfile,
-  nameFilter,
-  searchProfiles,
-  type RawProfile,
-} from "./api";
+import { ApiError, rankTier, displayName, findAccounts, type RawProfile } from "./api";
+import { log, runApp } from "./app";
 import { LANGS, LANG_NAMES, TEXTS, isLang, systemLang, type Lang } from "./i18n";
-import { createShortcut, installedExe, isPackaged, openFile } from "./platform";
-import { renderReport } from "./report";
-import { computeStats } from "./stats";
+import { createShortcut, hideOwnConsole, installedExe, isPackaged, openFile } from "./platform";
 import {
   DATA_DIR,
   PAGE_FILE,
@@ -26,23 +14,23 @@ import {
   loadConfig,
   loadHistory,
   mergeHistories,
-  mergeSync,
   saveConfig,
   saveHistory,
   type Config,
-  type Snapshot,
 } from "./store";
+import { syncHistory, writePage } from "./sync";
 
 // Entry point. Double-clicking the .exe (or the desktop shortcut) runs it
-// with no arguments: the first time it asks for the language and the
-// in-game name and offers the shortcut; every time it fetches the new runs,
-// rebuilds the page and opens it. Commands (see TEXTS.usage) are for people
-// who prefer a terminal.
+// with no arguments, which opens the app window (app.ts): first-time setup
+// happens there, and while it is open it keeps saving new runs. Commands
+// (see TEXTS.usage) are for people who prefer a terminal.
 
 type T = (typeof TEXTS)[Lang];
 
 let t: T = TEXTS[systemLang()];
 let rl: Interface | null = null;
+/** After the console window is hidden there is nobody to read it or press Enter. */
+let consoleHidden = false;
 
 function ask(question: string): Promise<string> {
   rl ??= createInterface({ input: process.stdin, output: process.stdout });
@@ -54,18 +42,6 @@ const isNo = (answer: string) => ["n", "no", "nao", "não"].includes(answer.trim
 function describe(p: RawProfile): string {
   const d = p.user_data ?? {};
   return `${displayName(d.display_name) ?? t.noName}  ${rankTier(p.rank_tier) ?? "-"} ${p.ranked_mmr ?? "-"} MMR  ${t.games(d.games_played ?? 0)}  (ID ${p.owner})`;
-}
-
-/** Accounts matching a player ID, an exact name, or else part of a name. null when the text is too short. */
-async function findAccounts(query: string): Promise<RawProfile[] | null> {
-  if (PLAYER_ID.test(query)) {
-    const profile = await fetchProfile(query);
-    return profile ? [profile] : [];
-  }
-  const exact = nameFilter(query, true);
-  if (!exact) return null;
-  const hits = await searchProfiles(exact);
-  return hits.length ? hits : searchProfiles(nameFilter(query) as string);
 }
 
 async function chooseLang(): Promise<Lang> {
@@ -136,25 +112,30 @@ async function setup(query: string, lang: Lang): Promise<void> {
 async function report(config: Config): Promise<void> {
   const history = await loadHistory();
   if (!history) throw new Error(t.noHistory);
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(PAGE_FILE, renderReport(history, computeStats(history.runs), config.lang));
+  await writePage(history, config.lang);
   console.log(t.pageAt(PAGE_FILE));
 }
 
 async function sync(config: Config): Promise<void> {
-  const raw = await fetchProfile(config.playerId);
-  if (!raw) throw new Error(t.profileGone(config.playerId));
-  const { player, runs } = mapProfile(raw, await fetchSeasons());
-  const snapshot: Snapshot = { at: new Date().toISOString(), rank: player.rank, mmr: player.mmr, games: player.games, wins: player.wins };
-  const { history, added } = mergeSync(await loadHistory(), player.id, player.name, snapshot, runs);
-  await saveHistory(history);
-  console.log(`${t.syncResult(added.length, history.runs.length)} ${player.rank ?? ""} ${player.mmr ?? ""} MMR`);
+  const { history, added } = await syncHistory(config);
+  const snap = history.snapshots.at(-1);
+  console.log(`${t.syncResult(added.length, history.runs.length)} ${snap?.rank ?? ""} ${snap?.mmr ?? ""} MMR`);
   for (const r of added.slice(-10)) {
     const trainer = r.trainers.join(", ") || "?";
     const mmr = r.mmrDelta === null ? "" : ` (${r.mmrDelta > 0 ? "+" : ""}${r.mmrDelta} MMR)`;
     console.log(`   ${r.outcome === "abandoned" ? t.runAbandoned(trainer) : t.runLine(trainer, r.wins)}${mmr}`);
   }
-  await report(config);
+  console.log(t.pageAt(PAGE_FILE));
+}
+
+/** The app window. Started by double-click, the console window is hidden and messages go to app.log. */
+async function app(): Promise<void> {
+  await runApp(async () => {
+    if (!isPackaged() || !(await hideOwnConsole())) return;
+    consoleHidden = true;
+    console.log = (...args: unknown[]) => void log(args.join(" "));
+    console.error = console.log;
+  });
 }
 
 async function importFile(file: string, config: Config | null): Promise<Config> {
@@ -181,7 +162,7 @@ function requireConfig(config: Config | null): Config {
 
 /** Keeps the console window open long enough to read it. */
 async function pause(ms?: number): Promise<void> {
-  if (!process.stdin.isTTY) return;
+  if (!process.stdin.isTTY || consoleHidden) return;
   const enter = ask(`\n${ms ? t.closing : t.pressEnter}`);
   await (ms ? Promise.race([enter, new Promise((r) => setTimeout(r, ms))]) : enter);
 }
@@ -192,15 +173,15 @@ async function main(): Promise<boolean> {
   if (config) t = TEXTS[config.lang] ?? t;
   // Dropping a history.json on the .exe passes its path as the only argument.
   const dropped = command && command.toLowerCase().endsWith(".json") && existsSync(command) ? command : null;
-  const windowed = !command || Boolean(dropped);
+  // Started by double-click: keep the console open long enough to read it.
+  const windowed = Boolean(dropped);
 
   try {
     if (isPackaged() && process.platform === "win32") await installedExe();
     switch (dropped ? "import" : command) {
       case undefined:
-        config ??= process.stdin.isTTY ? await firstRun() : requireConfig(config);
-        await sync(config);
-        openFile(PAGE_FILE);
+      case "app":
+        await app();
         break;
       case "import":
         if (!(dropped ?? arg)) throw new Error(t.usage);
@@ -246,7 +227,7 @@ async function main(): Promise<boolean> {
     return true;
   } catch (err) {
     console.error(err instanceof ApiError ? t.apiDown(err.message) : (err as Error).message);
-    if (windowed) await pause();
+    if (windowed || !command) await pause();
     return false;
   }
 }

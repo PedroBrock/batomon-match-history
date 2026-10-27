@@ -1,4 +1,5 @@
-// Texts for the page and the console, in English and Brazilian Portuguese.
+// Texts for the app window, the page and the console, in English and
+// Brazilian Portuguese.
 // To add a language, add it to LANGS and give it a full copy of both tables.
 
 export const LANGS = ["en", "pt-BR"] as const;
@@ -12,7 +13,7 @@ const en = {
   title: "Match history",
   unranked: "Unranked",
   lead: (since: string, updated: string) => `runs saved since ${since} · last check ${updated}`,
-  tip: "The game only shows your last ~10 runs. Open the shortcut at least every 10 runs so none get lost, and between runs to see the MMR of each one.",
+  tip: "The game only shows your last ~10 runs. Keep the app open while you play (or open it at least every 10 runs) so none get lost; with it open, each run also gets its own MMR change.",
   accountWinRate: "Account win rate",
   winsInGames: (wins: number, games: number) => `${wins} wins in ${games} games, as in the in-game ranking`,
   rankedRuns: "Ranked runs",
@@ -61,6 +62,51 @@ const en = {
   footer: (at: string) =>
     `Generated ${at}. Data from the unofficial Batomon Showdown game API (berrymint). Fan-made tool, not affiliated with berrymint.`,
 
+  // App window
+  appTitle: "Batomon Match History",
+  tabComps: "Best comps",
+  tabTrainers: "Trainers",
+  tabHistory: "My history",
+  statusWatching: (last: string) => `Saving your runs while this window is open · last check ${last}`,
+  statusChecking: "Checking your profile...",
+  statusError: (msg: string, next: string) => `Could not reach the game API (${msg}). Trying again at ${next}.`,
+  statusSetup: "Pick your account to start saving your runs.",
+  checkNow: "Check now",
+  toastRun: (trainer: string, badges: number, mmr: string) => `Run saved: ${trainer}, ${badges} badges${mmr}`,
+  toastAbandoned: (trainer: string) => `Run saved: ${trainer}, abandoned`,
+  metaTitle: "Best comps right now",
+  metaLead: (runs: number, players: number, season: number, days: number, updated: string) =>
+    `${runs} runs from the top ${players} players of season ${season}, last ${days} days · updated ${updated}`,
+  metaMissing: "The stats could not be downloaded yet. Check your internet connection; the app tries again every 30 minutes.",
+  metaHow:
+    "Grouped by 3 core Batomon. Score: 70% share of 10-badge runs + 30% average badges. Only comps with 40+ runs from 25+ players get a tier.",
+  regionAll: "All regions",
+  regionLabel: "Region",
+  regionHow:
+    "The game does not record the region of a run, so it is worked out from the final team: Batomon found only in Pantra or only in Jinto. Batomon found in both count for neither.",
+  filterLabel: "Filter by Batomon or trainer",
+  filterPlaceholder: "e.g. Dracana, Gamer",
+  noTier: "No tier yet (small sample)",
+  noMatch: "No comp matches that.",
+  thTier: "Tier",
+  thTopTrainers: "Top trainers",
+  thPlayers: "Players",
+  thPlayRate: "Play rate",
+  trainersTitle: "Trainers right now",
+  trainersLead:
+    "How each trainer does in the runs of the top players. \"Picked when offered\" counts every rank: how often players take the trainer when the game offers it.",
+  thPickRate: "Picked when offered",
+  thYou: "You (avg. badges)",
+  youCell: (avg: string, runs: number) => `${avg} in ${runs} ${runs === 1 ? "run" : "runs"}`,
+  setupTitle: "Welcome!",
+  setupLead:
+    "Type your in-game name (or your 15-character player ID) to find your account. Your runs are saved only on this computer.",
+  setupSearch: "Search",
+  setupShortcut: "Create a desktop shortcut",
+  setupPick: "Click your account:",
+  setupSaving: "Saving...",
+  setupFailed: "Something went wrong:",
+
   // Console
   chooseLang: "Language / Idioma:",
   pickOption: "Type a number and press Enter: ",
@@ -74,7 +120,7 @@ const en = {
   games: (n: number) => `${n} games`,
   noName: "(no name)",
   saved: (name: string) => `Account saved: ${name}`,
-  askShortcut: "Create a desktop shortcut? Click it before (and after) playing to update your history. [Y/n] ",
+  askShortcut: "Create a desktop shortcut to open the app? [Y/n] ",
   shortcutCreated: (link: string) => `Shortcut created: ${link}`,
   shortcutOnlyWindows: "The desktop shortcut only works on Windows.",
   syncResult: (added: number, total: number) => `${added} new run(s), ${total} saved in total.`,
@@ -91,7 +137,8 @@ const en = {
   imported: (n: number, file: string) => `Imported ${n} run(s) from ${file}.`,
   badFile: (file: string) => `${file} is not a history.json file.`,
   usage: `Usage: BatomonMatchHistory [command]
-  (no command)        first-time setup if needed, then sync and open the page
+  (no command)        open the app window: saves your runs while it is open
+                      and shows the best comps and trainers
   setup "Name" | ID   pick the account
   sync                fetch new runs and rebuild the page
   report              rebuild the page only
@@ -109,7 +156,7 @@ const ptBR: Texts = {
   title: "Histórico de partidas",
   unranked: "Sem rank",
   lead: (since, updated) => `runs guardadas desde ${since} · última consulta ${updated}`,
-  tip: "O jogo só mostra as suas ~10 últimas runs. Abra o atalho pelo menos a cada 10 runs para nenhuma se perder, e entre uma run e outra para ver o MMR de cada uma.",
+  tip: "O jogo só mostra as suas ~10 últimas runs. Deixe o app aberto enquanto joga (ou abra pelo menos a cada 10 runs) para nenhuma se perder; com ele aberto, cada run também ganha a sua variação de MMR.",
   accountWinRate: "Win rate da conta",
   winsInGames: (wins, games) => `${wins} vitórias em ${games} partidas, como no ranking do jogo`,
   rankedRuns: "Runs ranqueadas",
@@ -158,6 +205,50 @@ const ptBR: Texts = {
   footer: (at) =>
     `Gerado em ${at}. Dados da API não oficial do Batomon Showdown (berrymint). Ferramenta feita por fã, sem ligação com a berrymint.`,
 
+  appTitle: "Batomon Match History",
+  tabComps: "Melhores comps",
+  tabTrainers: "Trainers",
+  tabHistory: "Meu histórico",
+  statusWatching: (last) => `Salvando suas runs enquanto esta janela estiver aberta · última consulta ${last}`,
+  statusChecking: "Consultando seu perfil...",
+  statusError: (msg, next) => `Não consegui acessar a API do jogo (${msg}). Tento de novo às ${next}.`,
+  statusSetup: "Escolha sua conta para começar a salvar suas runs.",
+  checkNow: "Atualizar agora",
+  toastRun: (trainer, badges, mmr) => `Run salva: ${trainer}, ${badges} insígnias${mmr}`,
+  toastAbandoned: (trainer) => `Run salva: ${trainer}, abandonada`,
+  metaTitle: "Melhores comps agora",
+  metaLead: (runs, players, season, days, updated) =>
+    `${runs} runs dos top ${players} jogadores da temporada ${season}, últimos ${days} dias · atualizado ${updated}`,
+  metaMissing: "Ainda não consegui baixar as estatísticas. Confira sua internet; o app tenta de novo a cada 30 minutos.",
+  metaHow:
+    "Agrupadas por 3 Batomon centrais. Nota: 70% taxa de runs com 10 insígnias + 30% média de insígnias. Só ganham tier as comps com 40+ runs de 25+ jogadores.",
+  regionAll: "Todas as regiões",
+  regionLabel: "Região",
+  regionHow:
+    "O jogo não registra a região da run, então ela é deduzida do time final: Batomon que só aparecem em Pantra ou só em Jinto. Os que aparecem nas duas não contam.",
+  filterLabel: "Filtrar por Batomon ou trainer",
+  filterPlaceholder: "ex.: Dracana, Gamer",
+  noTier: "Sem tier ainda (amostra pequena)",
+  noMatch: "Nenhuma comp com isso.",
+  thTier: "Tier",
+  thTopTrainers: "Trainers mais usados",
+  thPlayers: "Jogadores",
+  thPlayRate: "Uso",
+  trainersTitle: "Trainers agora",
+  trainersLead:
+    "Como cada trainer se sai nas runs dos melhores jogadores. \"Escolhido quando oferecido\" conta todos os ranks: quantas vezes os jogadores pegam o trainer quando o jogo oferece.",
+  thPickRate: "Escolhido quando oferecido",
+  thYou: "Você (média de insígnias)",
+  youCell: (avg, runs) => `${avg} em ${runs} ${runs === 1 ? "run" : "runs"}`,
+  setupTitle: "Boas-vindas!",
+  setupLead:
+    "Digite seu nome no jogo (ou o seu ID de jogador de 15 caracteres) para achar sua conta. Suas runs ficam salvas só neste computador.",
+  setupSearch: "Procurar",
+  setupShortcut: "Criar atalho na área de trabalho",
+  setupPick: "Clique na sua conta:",
+  setupSaving: "Salvando...",
+  setupFailed: "Algo deu errado:",
+
   chooseLang: "Language / Idioma:",
   pickOption: "Digite um número e aperte Enter: ",
   askName: "Seu nome no jogo (ou o seu ID de jogador de 15 caracteres): ",
@@ -170,7 +261,7 @@ const ptBR: Texts = {
   games: (n) => `${n} partidas`,
   noName: "(sem nome)",
   saved: (name) => `Conta salva: ${name}`,
-  askShortcut: "Criar um atalho na área de trabalho? Clique nele antes (e depois) de jogar para atualizar o histórico. [S/n] ",
+  askShortcut: "Criar um atalho na área de trabalho para abrir o app? [S/n] ",
   shortcutCreated: (link) => `Atalho criado: ${link}`,
   shortcutOnlyWindows: "O atalho na área de trabalho só funciona no Windows.",
   syncResult: (added, total) => `${added} run(s) nova(s), ${total} guardadas no total.`,
@@ -187,7 +278,8 @@ const ptBR: Texts = {
   imported: (n, file) => `Importadas ${n} run(s) de ${file}.`,
   badFile: (file) => `${file} não é um arquivo history.json.`,
   usage: `Uso: BatomonMatchHistory [comando]
-  (sem comando)       configura na primeira vez, depois atualiza e abre a página
+  (sem comando)       abre a janela do app: salva suas runs enquanto estiver
+                      aberta e mostra as melhores comps e trainers
   setup "Nome" | ID   escolhe a conta
   sync                busca as runs novas e gera a página
   report              só gera a página de novo

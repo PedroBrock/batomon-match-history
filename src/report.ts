@@ -15,14 +15,14 @@ const spriteData: Record<string, string> = sprites;
 
 type T = (typeof TEXTS)[Lang];
 
-const esc = (s: string) =>
+export const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
-const pct = (x: number) => `${Math.round(x * 100)}%`;
-const signed = (x: number) => (x > 0 ? `+${x}` : String(x));
-const tone = (x: number) => (x > 0 ? "up" : x < 0 ? "down" : "");
+export const pct = (x: number) => `${Math.round(x * 100)}%`;
+export const signed = (x: number) => (x > 0 ? `+${x}` : String(x));
+export const tone = (x: number) => (x > 0 ? "up" : x < 0 ? "down" : "");
 
 /** Sprites used by the page, each given a short CSS class. */
-class SpriteSheet {
+export class SpriteSheet {
   private classes = new Map<string, string>();
 
   icon(key: string | undefined, name: string, kind: "unit" | "trainer"): string {
@@ -39,10 +39,10 @@ class SpriteSheet {
   }
 }
 
-class Page {
+export class Page {
   constructor(
-    private t: T,
-    private sheet: SpriteSheet,
+    readonly t: T,
+    readonly sheet: SpriteSheet,
   ) {}
 
   num(x: number, digits = 1): string {
@@ -190,24 +190,7 @@ ${this.mmrChart(history.snapshots)}
   }
 }
 
-export function renderReport(history: History, stats: PersonalStats, lang: Lang, now = new Date()): string {
-  const sheet = new SpriteSheet();
-  const mains = LANGS.map(
-    (l) =>
-      `<main data-lang="${l}" data-title="${esc(`${TEXTS[l].title} · ${history.name}`)}"${l === lang ? "" : " hidden"}>
-${new Page(TEXTS[l], sheet).body(history, stats, now)}
-</main>`,
-  ).join("\n");
-  const switcher = LANGS.map((l) => `<button type="button" data-set-lang="${l}" lang="${l}">${LANG_NAMES[l]}</button>`).join("");
-
-  return `<!doctype html>
-<html lang="${lang}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(`${TEXTS[lang].title} · ${history.name}`)}</title>
-<style>
-:root { --bg:#0b1020; --panel:#121a2e; --line:#24304d; --ink:#e8ecf6; --muted:#94a0bd; --accent:#3ee0c4; --up:#4fd18b; --down:#ff5d73; color-scheme: dark; }
+export const STYLE = `:root { --bg:#0b1020; --panel:#121a2e; --line:#24304d; --ink:#e8ecf6; --muted:#94a0bd; --accent:#3ee0c4; --up:#4fd18b; --down:#ff5d73; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui, "Segoe UI", sans-serif; }
 nav { max-width:1100px; margin:0 auto; padding:12px 16px 0; display:flex; justify-content:flex-end; gap:6px; }
@@ -237,14 +220,11 @@ th { color:var(--muted); font-weight:600; font-size:13px; }
 .tr { display:flex; align-items:center; gap:6px; }
 .chart { width:100%; height:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; }
 .chart text { fill:var(--muted); font-size:12px; }
-${sheet.css()}
-</style>
-</head>
-<body>
-<nav aria-label="Language">${switcher}</nav>
-${mains}
-<script>
-(function () {
+`;
+
+/** Shows the main of the chosen language and remembers the choice. */
+export function langScript(lang: Lang): string {
+  return `(function () {
   var KEY = "bmh-lang";
   function pick(lang) {
     var mains = document.querySelectorAll("main[data-lang]");
@@ -268,7 +248,35 @@ ${mains}
   try { saved = localStorage.getItem(KEY); } catch (e) {}
   pick(saved || ${JSON.stringify(lang)});
 })();
-</script>
+`;
+}
+
+export function renderReport(history: History, stats: PersonalStats, lang: Lang, now = new Date()): string {
+  const sheet = new SpriteSheet();
+  const mains = LANGS.map(
+    (l) =>
+      `<main data-lang="${l}" data-title="${esc(`${TEXTS[l].title} · ${history.name}`)}"${l === lang ? "" : " hidden"}>
+${new Page(TEXTS[l], sheet).body(history, stats, now)}
+</main>`,
+  ).join("\n");
+  const switcher = LANGS.map((l) => `<button type="button" data-set-lang="${l}" lang="${l}">${LANG_NAMES[l]}</button>`).join("");
+
+  return `<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(`${TEXTS[lang].title} · ${history.name}`)}</title>
+<style>
+${STYLE}
+${sheet.css()}
+</style>
+</head>
+<body>
+<nav aria-label="Language">${switcher}</nav>
+${mains}
+<script>
+${langScript(lang)}</script>
 </body>
 </html>
 `;

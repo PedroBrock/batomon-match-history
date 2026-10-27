@@ -49,6 +49,21 @@ export interface RawSeason {
   number: number;
   starts_at: string;
   ends_at: string;
+  status?: string;
+}
+
+/** A record of trainer_selections: anonymous, one per trainer pick screen. */
+export interface RawSelection {
+  mode?: string;
+  mmr?: number;
+  version?: string;
+  offered_trainers?: unknown;
+  picked_trainer?: unknown;
+}
+
+export interface PagedResponse<T> extends ListResponse<T> {
+  page: number;
+  totalPages: number;
 }
 
 export class ApiError extends Error {}
@@ -96,6 +111,39 @@ export async function searchProfiles(filter: string): Promise<RawProfile[]> {
   return data.items;
 }
 
+/** A page of the ranking, highest MMR first. Leaves out the Steam ID field. */
+export async function fetchRankingPage(page: number, perPage: number, filter: string): Promise<RawProfile[]> {
+  const data = await getJson<ListResponse<RawProfile>>(
+    recordsUrl("player_profiles", {
+      page,
+      perPage,
+      sort: "-ranked_mmr",
+      skipTotal: 1,
+      filter,
+      fields: "owner,rank_tier,ranked_mmr,season_number,user_data",
+    }),
+  );
+  return data.items;
+}
+
+/** A page of trainer_selections in the API's default order (oldest first). */
+export function fetchSelectionsPage(page: number, perPage: number): Promise<PagedResponse<RawSelection>> {
+  return getJson<PagedResponse<RawSelection>>(recordsUrl("trainer_selections", { page, perPage }));
+}
+
+/** Accounts matching a player ID, an exact name, or else part of a name. null when the text is too short. */
+export async function findAccounts(query: string): Promise<RawProfile[] | null> {
+  const text = query.trim();
+  if (PLAYER_ID.test(text)) {
+    const profile = await fetchProfile(text);
+    return profile ? [profile] : [];
+  }
+  const exact = nameFilter(text, true);
+  if (!exact) return null;
+  const hits = await searchProfiles(exact);
+  return hits.length ? hits : searchProfiles(nameFilter(text) as string);
+}
+
 export async function fetchSeasons(): Promise<RawSeason[]> {
   const data = await getJson<ListResponse<RawSeason>>(recordsUrl("seasons", { perPage: 50, sort: "-number" }));
   return data.items;
@@ -140,6 +188,37 @@ export function monsterName(speciesId: string): string {
 export function trainerName(trainerId: string): string {
   const key = squash(trainerId);
   return TRAINER_IDS[key] ?? TRAINER_NAMES.get(key) ?? titleCase(trainerId);
+}
+
+/** Trainer id out of whatever shape the API uses: "gamer", {"id": "gamer"}... */
+function trainerRef(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    for (const k of ["trainer_id", "id", "name", "trainer"]) if (typeof o[k] === "string") return trainerRef(o[k]);
+  }
+  return null;
+}
+
+function asList(value: unknown): unknown[] {
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      return asList(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(value)) return value;
+  return typeof value === "string" ? value.split(",") : [];
+}
+
+export function mapSelection(raw: RawSelection): { offered: string[]; picked: string | null } {
+  const offered = asList(raw.offered_trainers).flatMap((v) => {
+    const id = trainerRef(v);
+    return id ? [trainerName(id)] : [];
+  });
+  const picked = trainerRef(raw.picked_trainer);
+  return { offered, picked: picked ? trainerName(picked) : null };
 }
 
 export function rankTier(raw: string | undefined): RankTier | null {

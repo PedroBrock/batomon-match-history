@@ -71,6 +71,10 @@ test("mergeHistories imports runs from another history.json of the same account"
   assert.equal(history.runs[0].mmrDelta, 21);
   assert.equal(history.snapshots.length, 2);
   assert.throws(() => mergeHistories(current, { ...old, playerId: "zzzzzzzzzzzzzzz" }));
+
+  // A run already saved without MMR takes it from the imported file.
+  const synced: History = { ...current, runs: [{ ...old.runs[0], mmrDelta: null }] };
+  assert.equal(mergeHistories(synced, old).history.runs[0].mmrDelta, 21);
 });
 
 test("computeStats works out the rank balance and sorts the worst comps", () => {

@@ -1,7 +1,7 @@
 {
   "name": "batomon-match-history",
-  "version": "0.1.0",
-  "description": "Keep your own Batomon Showdown ranked run history, win rate and comp stats on your computer.",
+  "version": "0.2.0",
+  "description": "Batomon Showdown companion app: saves your ranked runs while open and shows the best comps and trainers right now.",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -14,9 +14,10 @@
     "prestart": "npm run sprites",
     "start": "tsx src/main.ts",
     "pretest": "npm run sprites",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test --test-force-exit test/*.test.ts",
     "typecheck": "npm run sprites && tsc --noEmit",
-    "build:exe": "npm run sprites && bun build src/main.ts --compile --minify --target=bun-windows-x64 --outfile dist/BatomonMatchHistory.exe"
+    "build:exe": "npm run sprites && bun build src/main.ts --compile --minify --target=bun-windows-x64 --outfile dist/BatomonMatchHistory.exe",
+    "meta:collect": "tsx scripts/collect-meta.ts"
   },
   "devDependencies": {
     "@types/node": "^22",
