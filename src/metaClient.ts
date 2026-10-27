@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import pkg from "../package.json";
 import { isMeta, type MetaStats } from "./meta";
@@ -11,8 +11,8 @@ import { DATA_DIR } from "./store";
 export const META_URL =
   process.env.BMH_META_URL ?? "https://raw.githubusercontent.com/PedroBrock/batomon-match-history/meta-data/meta.json";
 const META_FILE = path.join(DATA_DIR, "meta.json");
-/** Do not download again before this (the file changes every 6 hours). */
-const MAX_AGE_MS = 60 * 60_000;
+/** ETag of the saved copy, so a check downloads the file only when it changed. */
+const ETAG_FILE = path.join(DATA_DIR, "meta.etag");
 
 export async function loadCachedMeta(): Promise<MetaStats | null> {
   try {
@@ -23,22 +23,31 @@ export async function loadCachedMeta(): Promise<MetaStats | null> {
   }
 }
 
-async function cacheAge(): Promise<number> {
+async function savedEtag(): Promise<string | null> {
   try {
-    return Date.now() - (await stat(META_FILE)).mtimeMs;
+    return (await readFile(ETAG_FILE, "utf8")).trim() || null;
   } catch {
-    return Infinity;
+    return null;
   }
 }
 
-/** The newest stats: downloads them when the copy is old. Throws when the download fails. */
-export async function refreshMeta(force = false): Promise<MetaStats | null> {
-  if (!force && (await cacheAge()) < MAX_AGE_MS) return loadCachedMeta();
-  const res = await fetch(META_URL, { headers: { "User-Agent": `batomon-match-history/${pkg.version}` } });
+/**
+ * The newest stats. Asks the server whether the file changed since the saved
+ * copy (a tiny request when it did not) and downloads it when it did.
+ * Throws when the server cannot be reached.
+ */
+export async function refreshMeta(): Promise<MetaStats | null> {
+  const cached = await loadCachedMeta();
+  const etag = cached ? await savedEtag() : null;
+  const headers: Record<string, string> = { "User-Agent": `batomon-match-history/${pkg.version}` };
+  if (etag) headers["If-None-Match"] = etag;
+  const res = await fetch(META_URL, { headers });
+  if (res.status === 304) return cached;
   if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
   const value: unknown = await res.json();
-  if (!isMeta(value)) return loadCachedMeta();
+  if (!isMeta(value)) return cached;
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(META_FILE, JSON.stringify(value));
+  await writeFile(ETAG_FILE, res.headers.get("etag") ?? "");
   return value;
 }
