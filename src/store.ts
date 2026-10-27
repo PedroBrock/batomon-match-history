@@ -104,18 +104,24 @@ export function mergeSync(previous: History | null, playerId: string, name: stri
 /**
  * Merges a history.json from elsewhere (another computer, or the older
  * personal/ tracker in PedroBrock/batomonshowdown, which uses the same
- * format) into the saved one. Runs are matched by id; snapshots by time.
+ * format) into the saved one. Runs are matched by id (a run saved in both
+ * keeps the MMR change the other file knew); snapshots by time.
  */
 export function mergeHistories(current: History | null, other: History): { history: History; added: number } {
   if (current && current.playerId !== other.playerId)
     throw new Error(`That file is for another account (${other.playerId}).`);
   const byId = new Map((current?.runs ?? []).map((r) => [r.id, r]));
   let added = 0;
-  for (const run of other.runs)
-    if (!byId.has(run.id)) {
+  for (const run of other.runs) {
+    const mine = byId.get(run.id);
+    if (!mine) {
       byId.set(run.id, { ...run, mmrDelta: run.mmrDelta ?? null });
       added++;
+    } else if (mine.mmrDelta === null && run.mmrDelta != null) {
+      // The other file saw this run on its own between two checks, so it knows its MMR.
+      byId.set(run.id, { ...mine, mmrDelta: run.mmrDelta, mmr: mine.mmr ?? run.mmr });
     }
+  }
   const snaps = new Map([...other.snapshots, ...(current?.snapshots ?? [])].map((s) => [s.at, s]));
   return {
     history: {

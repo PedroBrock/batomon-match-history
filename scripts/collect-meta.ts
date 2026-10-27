@@ -47,6 +47,16 @@ function countValues(items: RawSelection[], key: keyof RawSelection): string {
     .join("  ");
 }
 
+function countKeys(record: object, counts: Map<string, number>): void {
+  for (const key of Object.keys(record)) counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
+const describeKeys = (counts: Map<string, number>) =>
+  [...counts]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([k, n]) => `${k}=${n}`)
+    .join("  ");
+
 /** The newest trainer selections, limited to ranked and to the latest game version when there are enough. */
 async function collectSelections(): Promise<Selection[]> {
   const first = await fetchSelectionsPage(1, SELECTIONS_PER_PAGE);
@@ -79,15 +89,24 @@ async function main(): Promise<void> {
   console.log(`Season ${season}, top ${TOP_PLAYERS} players, last ${WINDOW_DAYS} days.`);
 
   const fresh: Run[] = [];
+  const profileKeys = new Map<string, number>();
+  const matchKeys = new Map<string, number>();
   let players = 0;
   for (let page = 1; players < TOP_PLAYERS; page++) {
     if (page > 1) await sleep(DELAY_MS);
     const items = await fetchRankingPage(page, PER_PAGE, `season_number=${season}`);
-    for (const profile of items.slice(0, TOP_PLAYERS - players)) fresh.push(...mapProfile(profile, seasons).runs);
+    for (const profile of items.slice(0, TOP_PLAYERS - players)) {
+      fresh.push(...mapProfile(profile, seasons).runs);
+      countKeys(profile.user_data ?? {}, profileKeys);
+      for (const match of profile.user_data?.match_history ?? []) countKeys(match, matchKeys);
+    }
     players += items.length;
     if (items.length < PER_PAGE) break;
   }
   console.log(`player_profiles: ${players} players, ${fresh.length} ranked runs`);
+  // Field names seen, to notice when the game adds something (no values, so nothing personal).
+  console.log(`  user_data fields: ${describeKeys(profileKeys)}`);
+  console.log(`  match_history fields: ${describeKeys(matchKeys)}`);
 
   const previous = await readState(stateFile);
   const byId = new Map((previous?.season === season ? previous.runs : []).map((r) => [r.id, r]));

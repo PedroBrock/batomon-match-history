@@ -10,6 +10,9 @@ on:
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch:
+  # TEMPORARY: a run from this branch to see the API's run fields. Remove before merging.
+  push:
+    branches: [claude/project-thread-ly0u7b]
 
 permissions:
   contents: write
