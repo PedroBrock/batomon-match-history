@@ -1,0 +1,26 @@
+{
+  "name": "batomon-match-history",
+  "version": "0.1.0",
+  "description": "Keep your own Batomon Showdown ranked run history, win rate and comp stats on your computer.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "repository": "github:PedroBrock/batomon-match-history",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "sprites": "tsx scripts/embed-sprites.ts",
+    "prestart": "npm run sprites",
+    "start": "tsx src/main.ts",
+    "pretest": "npm run sprites",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "npm run sprites && tsc --noEmit",
+    "build:exe": "npm run sprites && bun build src/main.ts --compile --minify --target=bun-windows-x64 --outfile dist/BatomonMatchHistory.exe"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}
