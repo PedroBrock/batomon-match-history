@@ -1,0 +1,5 @@
+node_modules/
+dist/
+src/generated/
+# Local data when BMH_DATA_DIR points inside the repo
+data/
