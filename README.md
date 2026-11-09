@@ -53,7 +53,7 @@ Close the app, download the new `BatomonMatchHistory.exe` from Releases and run 
 
 ### Uninstall
 
-Delete the desktop shortcut and the `%LOCALAPPDATA%\BatomonMatchHistory` folder.
+Close the app, then delete the desktop shortcut and the `%LOCALAPPDATA%\BatomonMatchHistory` folder.
 
 ## Command line
 
